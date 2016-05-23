@@ -1,0 +1,7 @@
+#!/bin/bash
+
+if [[ "$#" -gt 0 ]]; then
+    ./node_modules/webppl/webppl "$@" --require ./node_modules/webppl-oed/
+else
+    echo "No file specified"
+fi
