@@ -93,10 +93,9 @@
    tabsize=2,
    breaklines=true,
    showtabs=false,
-   captionpos=b
+   captionpos=b,
+   escapeinside={(@}{@)}
 }
-
-
 
 \usepackage[ruled,vlined]{algorithm2e}
 
@@ -263,7 +262,7 @@ Often, we are interested in posterior inference. Let's say we are interested in 
 \begin{lstlisting}[mathescape, label={code:webppl}]
 var g = function(){
 	var x = sample(Binomial({n: 4, p: 0.5}))
-	condition(x >= 2) // i.e. factor(x >= 2 ? 0 : -Infinity)
+  condition(x >= 2) (@ \hl{// i.e. factor(x >= 2 ? 0 : -Infinity)} @)
 	return x
 }
 Infer(g) // returns the table p(2) = 6/11, p(3) = 4/11, p(4) = 1/11
@@ -298,10 +297,10 @@ var OED = function(mSample, xSample, ySample) {
     var x = xSample()
     var KLDistrib = Infer(function() {    // compute KL for each y
       var y = ySample()                   // ${\color{purple} p(y ; x)}$
-                                          // Assume responses are universal across experiments
+                                          (@ \hl{// Assume responses are universal across experiments} @)
       var mPosterior = Infer(function() { // $\color{purple} P(M \mid Y = y)$
-        var m = mSample() // Infer will search through all the possible model samples
-        factor(score(m(x), y)) // mPosterior's dist is defined by conditional probabilities of m
+        var m = mSample() (@ \hl{// Infer will search through all the possible model samples} @)
+        factor(score(m(x), y)) (@ \hl{// mPosterior's dist is defined by conditional probabilities of m} @)
         return m
       })
       return KL(mPosterior, mPrior)      // ${\color{purple} \dkl{ P(M \mid Y = y) }{ P(M) } }$
@@ -328,11 +327,19 @@ As in our earlier example, we consider an experimental setup where participants 
 \subsection{Formalization}
 
 The model space $M$ is $\{m_{\text{fair}}, m_{\text{bias}}, m_{\text{markov}}\}$.
-For now, we assume that the experiment will include data from a single participant, so the experiment space $X$ is the Cartesian product $\{1\} \times \{\texttt{H}, \texttt{T}\}^4$ representing the fixed sample size of 1 and sequence space.\footnote{Our notion of ``experiment'' is quite general, including traditional components like stimulus properties (e.g., coin sequence) as well as other components like dependent measure and sample size.}
+For now, we assume that the experiment will include data from a single participant, so the
+experiment space $X$ is the Cartesian product $\{1\} \times \{\texttt{H}, \texttt{T}\}^4$
+representing the fixed sample size of 1 and sequence space.\footnote{Our notion of ``experiment''
+is quite general, including traditional components like stimulus properties (e.g., coin sequence)
+as well as other components like dependent measure and sample size.}\marginnote{If e.g. 2
+  participants, we have experiments (1, \texttt{HHHH}), (2, \texttt{HHHH}), (1, \texttt{HHHT}), (2,
+  \texttt{HHHT}), \ldots}
 Finally, $Y$ is the response set $\{\texttt{H}, \texttt{T}\}^1$.
 
 In $m_{\text{fair}}$, we model participants as believing that the coin has an equal probability of coming up heads or tails:
 \begin{lstlisting}[upquote=true]
+(@ \hl{// fairCoin totally ignores the sequence input arguments} @)
+(@ \hl{// fairCoin($\cdot$) = \{T: 0.5, F: 0.5\}} @)
 var fairCoin = function(seq) {
   Infer(function(){ return flip(0.5) })
 }
