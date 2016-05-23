@@ -1,3 +1,6 @@
+pdf:
+	pdflatex oed_nips_2016.tex
+
 %.pdf : %.tex img/*
 	latexmk -pdflatex='texfot pdflatex -file-line-error -synctex=1 -interaction=nonstopmode' -pdf "$<";
 

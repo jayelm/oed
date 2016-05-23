@@ -16,6 +16,10 @@
 %
 % to avoid loading the natbib package, add option nonatbib:
 \usepackage[nonatbib]{nips_2016}
+\usepackage{marginnote}
+\renewcommand*{\marginfont}{\footnotesize}
+
+\usepackage{soul}
 
 %\usepackage{nips_2016}
 
@@ -206,11 +210,22 @@ There are 16 possible experiments (all combinations of \lstinline{H} and \lstinl
 Each model is a probability distribution on $\{0,1\}^n$ conditional on the experiment $x$---it describes a prediction about how people would respond after seeing some particular sequence of flips.
 For convenience, we write our models in terms of a what a single person would do and assume that all people respond according to the same model, i.e., participant responses are i.i.d.\footnote{We use this simple linking function throughout this paper but our approach handles arbitrary linking functions (e.g., hierarchical models with subject-wise parameters).}
 
+\marginnote{Different experiments are optimal depending on the prior on models.
+  Notice if $(P(m_{\text{fair}}), P(m_{\text{bias}})) = (5/8, 3/8)$, an \texttt{H} response is not
+informative. Consider
+\begin{align*}
+  P(m|\texttt{H}) &= \frac{P(m)P(\texttt{H}|m)}{P(\texttt{H})} \\
+  &\propto P(m)P(\texttt{H}|m) \\
+  P(m_{\text{fair}} | \texttt{H}) &\propto (5/8)(1/2) = 5/16 \\
+  P(m_{\text{bias}} | \texttt{H}) &\propto (3/8)(5/6) = 5/16
+\end{align*}
+}
 How informative would running the experiment \lstinline{HHTT} be?
 $m_{\text{fair}}$ and $m_{\text{bias}}$ are identical here (heads and tails are equally likely)---if we ran our experiment with a single participant, neither experimental result would update our beliefs about the models, so this is a poor experiment.
 By contrast, the experiment \lstinline{HHHH} would be much more informative.
-Under $m_{\text{fair}}$, $p(\texttt{H}) = \frac{1}{2}$ but under $m_{\text{bias}}$, $p(\texttt{H}) = \frac{5}{6}$.
-In this case, \emph{either} experimental response would be informative.
+Under $m_{\text{fair}}$, $p(\texttt{H}) = \frac{1}{2}$ but under $m_{\text{bias}}$, $p(\texttt{H})
+= \frac{5}{6}$.
+\hl{In this case, \emph{either} experimental response would be informative.}
 If the participant predicted heads, this would favor $m_{\text{bias}}$ and if she predicted tails, this would favor $m_{\text{fair}}$.
 Thus, \lstinline{HHHH} would be a good experiment to run to disambiguate these models.
 The goal of OED is to automate this reasoning.
@@ -220,6 +235,14 @@ We wish to compare a set of models $M$ in terms of how well they account for emp
 A model $m$ is a conditional distribution $P_m(Y \mid X)$ representing the likelihood of empirical results $y$ for different possible experiments $x$.
 We begin with a prior $P(M)$ and aim to conduct an experiment $x^*$ that maximally updates this distribution, providing as much information as possible.
 That is, we wish to maximize $\dkl{ P(M \mid X = x^*) }{ P(M) }$.
+\marginnote{
+  Kullback-Leibler divergence:
+  How ``different'' the probabilities expressed by the models are, averaged over the common support of the two models $P$ and $Q$
+  \begin{align*}
+  \dkl{P}{Q} &= \sum_i P(i) \log \frac{P(i)}{Q(i)} \\
+  &= \mathbb{E}\left(\log \frac{P}{Q}\right)
+  \end{align*}
+}
 %$$x^{*} = \argmax_{x} \dkl{ P(M \mid X = x) }{ P(M) }.$$
 \emph{A priori}, we do not know what the result of any particular experiment will be, so we must marginalize over the possible results $y$:
 \begin{align}
@@ -227,7 +250,8 @@ That is, we wish to maximize $\dkl{ P(M \mid X = x^*) }{ P(M) }$.
 \end{align}
 where $p(y ; x)$ is the probability of observing result $y$ for experiment $x$.
 If we have reason to believe that $M$ contains the true model of the data, then a suitable choice for $p(y ; x)$ is the predictive distribution implied by the models $p(y ; x) = {\mathbb E}_{p(m)} p_m(y \mid x)$.
-If, however, we think $M$ may not contain the true model, then an uninformative prior $p(y ; x) \propto 1$ may be more appropriate.
+\hl{If, however, we think $M$ may not contain the true model, then an uninformative prior $p(y ; x)
+\propto 1$ may be more appropriate.}\marginnote{i.e.\ uniform}
 
 \subsection{Writing models as probabilistic programs}
 
@@ -239,16 +263,19 @@ Often, we are interested in posterior inference. Let's say we are interested in 
 \begin{lstlisting}[mathescape, label={code:webppl}]
 var g = function(){
 	var x = sample(Binomial({n: 4, p: 0.5}))
-	condition(x >= 2)
+	condition(x >= 2) // i.e. factor(x >= 2 ? 0 : -Infinity)
 	return x
 }
 Infer(g) // returns the table p(2) = 6/11, p(3) = 4/11, p(4) = 1/11
+// i.e. Infer({method: `enumerate'}, g)
 \end{lstlisting}
 \lstinline{g} is a function representing the conditional distribution.
 Conceptually, it draws a sample \lstinline{x} from the prior, rejects values less than 2 using \lstinline{condition} (which enforces hard constraints\footnote{ An alternate form called \lstinline{factor} generalizes \lstinline{condition}, continuously weighting different program execution paths rather than simply accepting or rejecting them.}) and returns \lstinline{x}.
 However, \lstinline{g} is not directly runnable.
 To reify the conditional distribution, we must perform marginal inference on this model using \lstinline{Infer(g, options)}, which yields a distribution object (a probability table).
-This provides a useful separation---we distinguish \emph{what} we wish to compute from \emph{how} we try to compute it.
+This provides a useful separation---\hl{we distinguish \emph{what} we wish to compute from
+\emph{how} we try to compute it.}\marginnote{\emph{what} to compute: the model specified
+probabilistically. \emph{how} to compute it: various inference algorithms}
 In the above snippet, and throughout, we omit the \lstinline{options} object, which describes to \lstinline{Infer} which inference algorithm to use. WebPPL currently provides several inference algorithms: MCMC (MH, HMC), SMC, enumeration for discrete models, and variational inference.
 
 \subsection{Writing OED as a probabilistic program}
@@ -256,9 +283,12 @@ In the above snippet, and throughout, we omit the \lstinline{options} object, wh
 Surprisingly, after expressing the spaces of models, experiments, and responses as probabilistic programs, it is straightforward to express OED as a probabilistic program as well (see Listing \ref{code:oed-pp}).
 Equation~\ref{eq:oed} translates to around 20 lines of WebPPL code, expressing that OED is an inference problem.
 A rich language like WebPPL is particularly well-suited here, as we lean heavily on the ability to perform \emph{nested} inference.
-Also, writing OED as a probabilistic program gives us access to algorithms that are more sophisticated than previous research has considered (e.g., mixtures of enumeration and HMC for experiment spaces that have continuous and discrete subspaces).
+Also, \hl{writing OED as a probabilistic program gives us access to algorithms that are more
+  sophisticated than previous research has considered (e.g., mixtures of enumeration and HMC for
+experiment spaces that have continuous and discrete subspaces).}
 Finally, note that we implement search for the optimal experiment using inference.
-This is not essential---we could also replace the outermost \lstinline|Infer()| call with an optimization procedure (e.g., \lstinline|Search()|).
+This is not essential---we could also replace the outermost \lstinline|Infer()| call with an
+optimization procedure (e.g., \lstinline|Search()|).\marginnote{lots of CPS magic happening here}
 
 %\begin{minipage}{\linewidth}
 \begin{lstlisting}[mathescape, label={code:oed-pp}, caption = {OED implementation. For clarity, we have omitted some book-keeping details.}]
@@ -268,9 +298,10 @@ var OED = function(mSample, xSample, ySample) {
     var x = xSample()
     var KLDistrib = Infer(function() {    // compute KL for each y
       var y = ySample()                   // ${\color{purple} p(y ; x)}$
+                                          // Assume responses are universal across experiments
       var mPosterior = Infer(function() { // $\color{purple} P(M \mid Y = y)$
-        var m = mSample()
-        factor(score(m(x), y))
+        var m = mSample() // Infer will search through all the possible model samples
+        factor(score(m(x), y)) // mPosterior's dist is defined by conditional probabilities of m
         return m
       })
       return KL(mPosterior, mPrior)      // ${\color{purple} \dkl{ P(M \mid Y = y) }{ P(M) } }$
