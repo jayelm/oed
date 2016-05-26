@@ -1,0 +1,14 @@
+var p = 0.5;
+var N = 4;
+
+var coinflips = function() {
+    var constructSeq = function(n) {
+        if (n === 0) return '';
+        return (flip(p) ? 'H' : 'T') + constructSeq(n - 1);
+    };
+    var seq = constructSeq(N);
+    factor((seq === 'HHHT' || seq === 'HHHH' ? 40 : 0));
+    return seq;
+};
+
+Enumerate(coinflips);
