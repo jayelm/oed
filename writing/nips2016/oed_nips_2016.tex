@@ -266,7 +266,7 @@ var g = function(){
 	return x
 }
 Infer(g) // returns the table p(2) = 6/11, p(3) = 4/11, p(4) = 1/11
-// i.e. Infer({method: `enumerate'}, g)
+(@ \hl{// i.e. Infer(\{method: `enumerate'\}, g)} @)
 \end{lstlisting}
 \lstinline{g} is a function representing the conditional distribution.
 Conceptually, it draws a sample \lstinline{x} from the prior, rejects values less than 2 using \lstinline{condition} (which enforces hard constraints\footnote{ An alternate form called \lstinline{factor} generalizes \lstinline{condition}, continuously weighting different program execution paths rather than simply accepting or rejecting them.}) and returns \lstinline{x}.
@@ -368,6 +368,9 @@ Finally, $m_{\text{markov}}$ (see supplement for code) assumes that the flips ar
 \subsection{Predictions of optimal experiment design}
 
 Using an uninformative prior for $p(y; x)$, we ran OED for three different model comparison: fair--bias, bias--Markov, and fair--bias--Markov and planned to collect data from 20 participants (rather than 1).
+\marginnote{Notice our models are that each of the $n$ participants follow the same model. Can the
+model space account for variability by enumerating the possible combinations? (e.g. 5 bias, 10
+markov, 5 fair?) Would it make any sense?}
 \begin{figure}[t]
 (a) \underline{\textsf{Example input for fair-bias comparison:}}
 \begin{lstlisting}
@@ -398,7 +401,10 @@ This is intuitive---the bias model would infer a strongly biased coin and make a
 
 Moving to the bias--Markov comparison (Fig.~\ref{fig:run-coin}b, middle), the best and worst experiments actually reverse.
 Now, \lstinline{HHHH} and \lstinline{TTTT} are the least informative (because, as before, the models make similar predictions here), whereas \lstinline{HTHT} and \lstinline{THTH} are the most informative.
-This makes sense---the bias model learns a 0.5 probability of heads and so assigns equal probability of heads and tails to the next flip, whereas the Markov model learns that the transition probability is high and assigns high probability to the opposite of whatever outcome was observed last (\lstinline{T} for \lstinline{THTH} and \lstinline{H} for \lstinline{HTHT}).
+\hl{This makes sense---the bias model learns a 0.5 probability of heads and so assigns equal
+  probability of heads and tails to the next flip, whereas the Markov model learns that the
+  transition probability is high and assigns high probability to the opposite of whatever outcome
+was observed last} (\lstinline{T} for \lstinline{THTH} and \lstinline{H} for \lstinline{HTHT}).
 
 \begin{figure}[h]
   \centering
@@ -411,14 +417,17 @@ This makes sense---the bias model learns a 0.5 probability of heads and so assig
   \label{fig:coin_preds}
 \end{figure}
 
-In the full bair--bias--Markov comparison (Fig.~\ref{fig:run-coin}b, right), the worst experiments (e.g., \lstinline{TTHH}) are again cases where all models make similar predictions.
+In the full bair--bias--Markov comparison (Fig.~\ref{fig:run-coin}b, right), the worst experiments
+(e.g., \lstinline{TTHH}) are again cases where all models make similar predictions.\marginnote{How
+is expected information gain computed in the case of 2+ models?}
 The best experiments are \lstinline{TTTT} and \lstinline{HHHH}, a result that is non-obvious because we are comparing three models rather than two.
 The best experiment \lstinline{HHHH} is very good at separating the fair model from the other two models, while still predicting a difference between bias and Markov (Fig.~\ref{fig:coin_preds}a, right).
 The second best experiment, \lstinline{HHHT}, better distinguishes the bias model from the Markov model as it predicts a qualitative difference (Fig.~\ref{fig:coin_preds}a, middle), but this comes at the cost of less expected information gain overall.
 An automated design tool is especially useful in these settings, where human intuition would likely favor the qualitative over the quantitative difference.
 
 Finally, expected information gain of an experiment varies as a function of sample size (Fig.~\ref{fig:coin_preds}b).
-This function is non-linear and, crucially, the rank ordering of experiments can change.
+\emph{This function is non-linear and, crucially, the rank ordering of experiments can
+change.}\marginnote{TODO: Do the math---why?}
 For the the full model comparison, the experiments \lstinline{HTHT} and \lstinline{HHHT} switch places after 12 participants.
 This is particularly relevant when three models are being compared, as small quantitative differences between two models may amplify as the sample size grows.
 In our example here, the optimal experiment with 1 participant is the same as with 30 participants.
@@ -526,14 +535,18 @@ Practitioners aim to design experiments that yield informative results.
 Our approach partially automates experiment design, searching for experiments that maximally update beliefs about the model distribution.
 With our approach, the scientist writes her hypotheses as probabilistic programs, sketches a space of possible experiments, and hands these to OED for experiment selection.
 We stress that our work \emph{complements} practitioners; it does not replace them.
-Our tool eliminates the need to manually comb large spaces for good experiments; we hope this will free scientists and engineers to work on the more interesting problems---devising empirical paradigms and building models.
+Our tool eliminates the need to manually comb large spaces for good experiments; we hope this will
+free scientists and engineers to work on the more interesting problems---devising empirical
+paradigms and building models.\marginnote{At a certain point, space becomes too large even for the
+computer}
 
 Our approach suggests a number of interesting directions for future work.
 %First, we chose KL divergence between posterior and prior as our informativeness measure because it is a well-known divergence function, but other choices (e.g., TV distance) might also be suitable.
 We cast the OED problem as a problem of inference and this might suggest particular inference techniques.
 For instance, if a particular response is quite unlikely (i.e., $p(y)$ is negligible), it may be acceptable to have a less precise estimate of information gain for that response.
 Additionally, while our framework \emph{can} accommodate different costs of experiments using a prior distribution, the focus of our work is on finding \emph{informative} experiments.
-It could be useful to integrate our system into multi-objective optimization systems for balancing multiple design considerations (e.g., informativeness, cost, ethics).
+It could be useful to integrate our system into multi-objective optimization systems for balancing
+multiple design considerations (e.g., informativeness, cost, ethics).\marginnote{Right now can do this post-hoc}
 Finally, we have explored the trajectory of information gain as the number of \emph{i.i.d.} observations increases.
 Observations need not independent, however.
 Adaptive testing can be formulated as a problem of information gain of sequences of experiments, which produce dependent and non-identical responses.

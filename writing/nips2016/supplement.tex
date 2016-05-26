@@ -35,6 +35,8 @@
 \usepackage{multirow}
 \usepackage{color}
 \usepackage{textcomp}
+\usepackage{soul}
+\usepackage{marginnote}
 
 
 % HT http://tex.stackexchange.com/a/151987/41154
@@ -88,7 +90,8 @@ numbersep=9pt,
 tabsize=2,
 breaklines=true,
 showtabs=false,
-captionpos=b
+captionpos=b,
+escapeinside={(@}{@)}
 }
 
 
@@ -124,19 +127,26 @@ captionpos=b
 \begin{lstlisting}[upquote=true]
 var markovCoin = function(seq) {
  Infer(function(){
-   var transProb = uniformDraw(coinWeights)
-   var sampleOne = function(lastFlip) {
+   (@ \hl{NOTE: if coinWeights is a continuous interval then infinite number of possible weights -
+   can't enumerate!} @)
+   var transProb = uniformDraw(coinWeights) (@ \hl{// Return random weight between [0, 1]?} @)
+   var sampleOne = function(lastFlip) { (@ \hl{// Symmetric transition probability H
+   $\leftrightarrow$T} @)
        return flip(transProb) ? !lastFlip : lastFlip
    }
 	  var sampleSeq = function(flipsSoFar, n) {
+      (@ \hl{// Tail-recursive implementation.} @)
      if (n == 0) {
        return flipsSoFar
      } else {
+       (@ \hl{// get the last flip of the flips array, predict next flip w/ transProb} @)
+       (@ \hl{// remember OED is enumerating these transition probabilities} @)
        var nextFlip = sampleOne(last(flipsSoFar))
-       return sampleSequence(append(flipsSoFar, nextFlip),
+       return sampleSeq(@\st{uence}@)(append(flipsSoFar, nextFlip),
                              n - 1)
      }
    }
+   (@ \hl{// uniform initial state distirbution} @)
 	  var sampledSeq = sampleSeq([flip(0.5)], seq.length - 1)
    condition(arrayEquals(seq, sampledSeq));
    return sampleOne(last(sampledSeq))
