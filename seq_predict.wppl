@@ -1,0 +1,161 @@
+var H = true;
+var T = false;
+
+var coin_weights = [
+    0.0, 0.1, 0.2, 0.3, 0.4, 0.5,
+    0.6, 0.7, 0.8, 0.9, 1.0
+];
+
+var arrayEquals = function(a, b) {
+    if (a.length !== b.length) return false;
+    if (a.length === 0) return true;
+    return a[0] === b[0] &&
+        arrayEquals(a.slice(1, a.length), b.slice(1, b.length));
+};
+
+// By enumerating, this returns {T: 0.5, F: 0.5}
+var fairCoin = function(seq) {
+    return Enumerate(function() { flip(0.5); });
+};
+
+// uniform(0, 1) is a sampling operator in disguise?
+// Same as markov (below) but simpler - associate returns H or T with
+// different probabilities from the uniform prior, normalize the probabilities
+// so they sum to 1
+// e.g. if sequence is HHHH, then a w probability of 1 will produce sequences
+// HHHH with a high probability. And, when the function under Enumeration
+// returns, it will also guess H with high probability - so the H returned by
+// the function is associated with the higher probabilities of the flips.
+// If we believe that a coin bias of 1 is unlikely, however, we should
+// expressed this in our prior and that would dampen the effect
+var biasCoin = function(seq) {
+    Enumerate(function() {
+        var w = uniform(0, 1);
+        var flipCoin = function() {
+            return flip(w);
+        };
+        var sampledSeq = repeat(seq.length, flipCoin);
+        condition(arrayEquals(seq, sampledSeq));
+        return flip(w);
+    });
+};
+
+var markovCoin = function(seq) {
+    Enumerate(function() {
+        var transProb = uniformDraw(coin_weights);
+        var sampleOne = function(lastFlip) {
+            return flip(transProb) ? !lastFlip : lastFlip;
+        };
+        var sampleSeq = function(flipsSoFar, n) {
+            if (n === 0) {
+                return flipsSoFar;
+            } else {
+                var nextFlip = sampleOne(last(flipsSoFar));
+                return sampleSeq(append(flipsSoFar, nextFlip), n - 1);
+            }
+        };
+        // Why isn't this a draw with the transition probability?
+        // Because transition function != initial states distribution
+        var sampledSeq = sampleSeq([flip(0.5)], seq.length - 1);
+        condition(arrayEquals(seq, sampledSeq));
+        return sampleOne(last(sampledSeq));
+    });
+};
+
+/**
+ * Enumeration happens
+ *      1. at uniformDraw(coin_weights), and
+ *      2. while exploring all possible sequences in sampleOne.
+ *      3. while picking the first state (flip(0.5))
+ * For each transProb, wppl explores every possible length n sequence
+ * constructed, with associated scores (since the probability of a certain sequences are less
+ * less
+ */
+var likelyMarkovTransProb = function(seq) {
+    Enumerate(function() {
+        // Enumerates, each transProb has equal probability
+        // could use Beta here -- agian, what about continuous distributions?
+        var transProb = uniformDraw(coin_weights);
+        var sampleOne = function(lastFlip) {
+            // Enumerates
+            return flip(transProb) ? !lastFlip : lastFlip;
+        };
+        var sampleSeq = function(flipsSoFar, n) {
+            if (n === 0) {
+                return flipsSoFar;
+            } else {
+                var nextFlip = sampleOne(last(flipsSoFar));
+                return sampleSeq(append(flipsSoFar, nextFlip), n - 1);
+            }
+        };
+        // Why isn't this a draw with the transition probability?
+        // This enumerates
+        var sampledSeq = sampleSeq([flip(0.5)], seq.length - 1);
+        // We keep only the sampled seqs that match with the target sequence. Since
+        // these are factored away, what's left is the sum of the probabilities
+        // of the ways a markov model with the given transprob could produce
+        // the targetSequence.
+        // Enumerate explores the marginal probabilities associated with the
+        // return values of the function: in this case, transProb.
+        // So it's learned that executions of this function that return a transProb
+        // of 1 has a relatively higher probability of producing the target sequence.
+        // By "executions of this function" the random sample of coin_weights
+        // is obviously exhaustively enumerated
+        condition(arrayEquals(seq, sampledSeq));
+        return transProb;
+        // Previously we returned H, T, so Enumerate associated probabilities
+        // with the sum of all possible transitionProbabilites and their
+        // respective
+        // Many paths through this function will return H, many will return T,
+        // each unique paths through sampling coin_weights and the target
+        // sequence.
+        // Probabilities for H, T are kept track of throughout the execution then
+        // re-normalized to 1.
+    });
+};
+
+var groupify = function(model) {
+    var groupified = function(x) {
+        var sequence = x.sequence;
+        var n = x.n;
+        var singleResponseDist = model(sequence);
+        // Get the (true) binomial probability from the (log) probability of
+        // the response of a single model. We assume singleResponseDist only
+        // has True and False probabilities
+        var p = Math.exp(score(singleResponseDist, true));
+        // This binomial will track the number of participants answering TRUE
+        // for a given sequence and a given number of experiments
+        // (treat responses as independent)
+        return Binomial({n: n, p: p});
+    };
+    // The result is a *function* - it returns a group response model based
+    // on the model it has been passed, that is ready to accept `n` identical
+    // experiments of `seq` and return `n` identical responses according to the model.
+    return groupified;
+};
+
+var n = 20;
+var fairGroup = groupify(fairCoin), biasGroup = groupify(biasCoin);
+
+var fourSeqs = [
+    "HHHH", "HHHT", "HHTH", "HHTT", "HTHH", "HTHT", "HTTH", "HTTT",
+    "THHH", "THHT", "THTH", "THTT", "TTHH", "TTHT", "TTTH", "TTTT"
+];
+
+OED({
+    mSample: function() { uniformDraw([fairGroup, biasGroup]); },
+    xSample: function() {
+        return {
+            n: n,
+            seq: uniformDraw(fourSeqs)
+        };
+    },
+    // This is our prior belief of what people will answer irrespective of the
+    // experiment
+    // We have no idea how *real* humans will respond: uninformative prior
+    // From paper...if we believe that mSample contains the true model...then
+    // ySample can express that?
+    ySample: function() {
+        return randomInteger(n + 1);
+    }
+});
