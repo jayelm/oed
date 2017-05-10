@@ -9,3 +9,6 @@ tex/*.pdf
 *.bbl
 *.fdb_latexmk
 *.fls
+
+figures.html
+figures_files/
